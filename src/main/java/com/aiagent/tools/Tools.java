@@ -49,7 +49,6 @@ public class Tools {
     }
 
     @Tool("Sistemdeki tüm kayıtlı ürünleri, kodlarını, mevcut stoklarını, kritik eşiklerini, birim fiyatlarını ve tedarikçilerini veritabanından detaylı olarak listeler.")
-    @Transactional(readOnly = true)
     public String getAllProducts() {
         log.info("🛠️ [TOOL EXECUTION]: getAllProducts() -> Veritabanından tüm ürünler çekiliyor.");
         auditService.recordToolExecution("getAllProducts()");
@@ -70,7 +69,6 @@ public class Tools {
     }
 
     @Tool("Belirtilen ürün koduna göre veritabanından anlık stok durumu, birim fiyatı, tedarikçisi ve kritik seviye uyarısını getirir.")
-    @Transactional(readOnly = true)
     public String getProductStock(@P("Ürün kodu, örn: PRD-101") String productCode) {
         log.info("🛠️ [TOOL EXECUTION]: getProductStock(productCode='{}')", productCode);
         auditService.recordToolExecution("getProductStock(" + productCode + ")");
@@ -96,7 +94,6 @@ public class Tools {
     }
 
     @Tool("Tedarikçiye verilmek üzere ERP veritabanında yeni bir satın alma siparişi taslağı (Purchase Order) oluşturur ve kaydeder.")
-    @Transactional
     public String createOrderDraft(
             @P("Sipariş verilecek ürün kodu, örn: PRD-101") String productCode,
             @P("Sipariş adedi") int quantity,
@@ -144,7 +141,6 @@ public class Tools {
     }
 
     @Tool("Sistemde onay bekleyen tüm satın alma sipariş taslaklarını veritabanından listeler.")
-    @Transactional(readOnly = true)
     public List<PurchaseOrder> getPendingOrders() {
         log.info("🛠️ [TOOL EXECUTION]: getPendingOrders() -> Sipariş taslakları veritabanından çekiliyor.");
         auditService.recordToolExecution("getPendingOrders()");

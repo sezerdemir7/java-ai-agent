@@ -204,10 +204,15 @@ public class AiConfig {
                        StreamingChatLanguageModel streamingChatLanguageModel,
                        Tools tools) {
         log.info("🤖 LangChain4j AiServices ile Agent (Tools + Agentic RAG + Streaming) derleniyor...");
+        Object actualTools = org.springframework.aop.framework.AopProxyUtils.getSingletonTarget(tools);
+        if (actualTools == null) {
+            actualTools = tools;
+        }
+
         return AiServices.builder(Agent.class)
                 .chatLanguageModel(chatLanguageModel)
                 .streamingChatLanguageModel(streamingChatLanguageModel)
-                .tools(tools)
+                .tools(actualTools)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(20))
                 .build();
     }
