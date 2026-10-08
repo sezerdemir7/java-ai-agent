@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>java-ai-agent - Enterprise AI Agent (RAG, Tools & Streaming)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card-bg: #151e32;
+      --border: #23314f;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: #070b14;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+    }
+    .badge {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      font-size: 0.73rem;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+    .badge-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .badge-purple {
+      background: rgba(139, 92, 246, 0.15);
+      color: #c084fc;
+      border-color: rgba(139, 92, 246, 0.35);
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      flex: 1;
+      overflow: hidden;
+      gap: 1px;
+      background: var(--border);
+    }
+    .panel {
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 12px 18px;
+      background: var(--card-bg);
+      font-weight: 600;
+      font-size: 0.88rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Chat Area */
+    .chat-messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 2px;
+    }
+    .message.agent {
+      align-self: flex-start;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 2px;
+    }
+    .message-meta {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      display: flex;
+      gap: 10px;
+    }
+    .quick-prompts {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      overflow-x: auto;
+      background: #0f182c;
+      border-top: 1px solid var(--border);
+    }
+    .quick-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 11px;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .quick-btn:hover {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .quick-btn.rag-btn {
+      border-color: rgba(139, 92, 246, 0.4);
+      color: #c084fc;
+    }
+    .quick-btn.rag-btn:hover {
+      background: var(--purple);
+      color: #fff;
+    }
+    .chat-input-area {
+      padding: 12px 16px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: #090e1a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .chat-input:focus { border-color: var(--primary); }
+    .send-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 0 18px;
+      height: 38px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .send-btn:hover { background: var(--primary-hover); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .stream-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Dashboard & Tabs */
+    .tabs-header {
+      display: flex;
+      background: #090e1a;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      padding: 10px 16px;
+      font-size: 0.81rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .dashboard-content {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    th, td {
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: #0d1527;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.77rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .status-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .status-ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .status-approval { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .tag {
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+    }
+    .doc-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      font-size: 0.83rem;
+      line-height: 1.5;
+    }
+    .doc-title {
+      font-weight: 600;
+      color: #c084fc;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🤖 java-ai-agent <span class="badge">Spring Boot 3 + LangChain4j</span></h1>
+    <div class="badges">
+      <span class="badge badge-success">H2 JPA RDBMS</span>
+      <span class="badge badge-purple">RAG Vektör Bilgi</span>
+      <span class="badge">SSE Streaming</span>
+      <span class="badge">Audit Trail</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- SOL: CHAT PANELİ -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>💬 AI Ajan İletişimi (<span id="session-label" class="tag">user-session-1</span>)</span>
+        <span id="typing-indicator" style="display: none; font-size: 0.75rem; color: var(--warning);">⚡ Yanıt Akıyor...</span>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="message agent">
+          Merhaba! Ben <strong>java-ai-agent</strong> Kurumsal AI Ajanıyım.
+          * <strong>Tools (Araçlar):</strong> ERP Envanter ve Satın Alma Sipariş Taslağı oluşturma.
+          * <strong>RAG (Vektör Bilgi):</strong> Tedarikçi sözleşmeleri, gecikme cezası ve garanti koşulları.
+          * <strong>Streaming:</strong> Cevaplarım harf harf akabilir.
+          Size nasıl yardımcı olabilirim?
+        </div>
+      </div>
+
+      <div class="quick-prompts">
+        <button class="quick-btn" onclick="sendPrompt('Sistemdeki tüm ürünleri ve stok durumlarını özetle')">📦 Tüm Ürünler</button>
+        <button class="quick-btn" onclick="sendPrompt('PRD-101 için 15 adet sipariş taslağı aç')">🛒 15 Adet Sipariş</button>
+        <button class="quick-btn rag-btn" onclick="sendPrompt('TeknoTedarik ile sözleşmemizde teslimat süresi ve gecikme cezası nedir?')">📜 TeknoTedarik Sözleşmesi</button>
+        <button class="quick-btn rag-btn" onclick="sendPrompt('MegaBilisim monitörlerinde ölü piksel garanti şartı nedir?')">🖥️ MegaBilisim Piksel Şartı</button>
+        <button class="quick-btn rag-btn" onclick="sendPrompt('Satın alımlarda Direktör onayı hangi durumlarda gerekir?')">📋 Yetki Limitleri</button>
+      </div>
+
+      <div class="chat-input-area">
+        <label class="stream-toggle" title="Harf harf akış modunu aç/kapat">
+          <input type="checkbox" id="stream-checkbox" checked> SSE Akış
+        </label>
+        <input type="text" id="user-input" class="chat-input" placeholder="Soru sorun veya sözleşmeleri sorgulayın..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <button id="send-btn" class="send-btn" onclick="sendMessage()">Gönder</button>
+      </div>
+    </div>
+
+    <!-- SAĞ: BİLGİ & DENETİM PANELİ -->
+    <div class="panel">
+      <div class="tabs-header">
+        <button class="tab-btn active" onclick="switchTab('inventory-tab')">📊 Envanter</button>
+        <button class="tab-btn" onclick="switchTab('orders-tab')">🛒 Siparişler</button>
+        <button class="tab-btn" onclick="switchTab('rag-tab')">📜 RAG Sözleşmeler</button>
+        <button class="tab-btn" onclick="switchTab('audit-tab')">⚡ Audit Log</button>
+        <div style="flex:1;"></div>
+        <button class="quick-btn" style="margin: 6px 12px;" onclick="refreshStatus()">Yenile ⟳</button>
+      </div>
+
+      <div class="dashboard-content">
+        <!-- TAB 1: Envanter -->
+        <div id="inventory-tab" class="tab-pane active">
+          <table>
+            <thead>
+              <tr>
+                <th>Kod</th>
+                <th>Ürün Adı</th>
+                <th>Stok / Eşik</th>
+                <th>Tedarikçi</th>
+                <th>Fiyat</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody">
+              <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TAB 2: Sipariş Taslakları -->
+        <div id="orders-tab" class="tab-pane">
+          <table>
+            <thead>
+              <tr>
+                <th>Sipariş No</th>
+                <th>Ürün</th>
+                <th>Adet</th>
+                <th>Tutar</th>
+                <th>Tedarikçi</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TAB 3: RAG Dokümanları -->
+        <div id="rag-tab" class="tab-pane">
+          <div style="font-size:0.8rem; color: var(--text-muted); margin-bottom:12px;">
+            Aşağıdaki kurumsal sözleşmeler <strong>InMemoryEmbeddingStore</strong> içine gömülmüş olup, ajan soruları cevaplarken bu maddeleri semantik olarak tarar:
+          </div>
+          <div class="doc-card">
+            <div class="doc-title">📄 TeknoTedarik A.Ş. Çerçeve Tedarik Sözleşmesi</div>
+            Teslimat süresi 3 iş günüdür. Geciken her gün için %1 ceza kesilir. 3 yıl yerinde servis garantisi, 48 saatte onarılamazsa sıfır cihazla değişim taahhüdü vardır. Vade 45 gündür.
+          </div>
+          <div class="doc-card">
+            <div class="doc-title">📄 MegaBilisim A.Ş. Ekran & Monitör Tedarik Sözleşmesi</div>
+            Tüm ekranlarda '0 Ölü Piksel' (Zero Dead Pixel) garantisi vardır. Tek bir ölü pikselde 3 iş gününde kutulu değişim yapılır. Garanti 3 yıl, teslimat 4 gündür.
+          </div>
+          <div class="doc-card">
+            <div class="doc-title">📄 OfisDepo Ltd. Çevre Birimleri Sözleşmesi</div>
+            Minimum sipariş adedi 10'dur. 5.000 TL üzeri alımlarda nakliye ve sigorta tedarikçiye aittir. 2 yıl garanti, teslimat 2 iş günüdür.
+          </div>
+          <div class="doc-card">
+            <div class="doc-title">📋 Kurumsal Satın Alma ve Yetki Limitleri Prosedürü</div>
+            20 adede veya 100.000 TL'ye kadar birim amiri onaylar. 20 adedi veya 100.000 TL'yi aşan siparişlerde Departman Direktörü onayı (DIRECTOR_APPROVAL_REQUIRED) zorunludur.
+          </div>
+        </div>
+
+        <!-- TAB 4: Audit Trail -->
+        <div id="audit-tab" class="tab-pane">
+          <table>
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Model</th>
+                <th>Çalışan Tool(lar)</th>
+                <th>Süre</th>
+                <th>Token</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody">
+              <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Henüz denetim kaydı bulunmuyor.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sessionId = "user-session-" + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById('session-label').textContent = sessionId;
+
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const streamCheckbox = document.getElementById('stream-checkbox');
+    const typingIndicator = document.getElementById('typing-indicator');
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    async function refreshStatus() {
+      try {
+        const res = await fetch('/api/agent/status');
+        const data = await res.json();
+        
+        // 1. Envanter
+        const invTbody = document.getElementById('inventory-tbody');
+        invTbody.innerHTML = data.products.map(u => {
+          const isCritical = u.stock <= u.criticalThreshold;
+          const badge = isCritical 
+            ? `<span class="status-badge status-critical">Kritik (${u.stock} adet)</span>` 
+            : `<span class="status-badge status-ok">Yeterli (${u.stock} adet)</span>`;
+          return `
+            <tr>
+              <td><span class="tag">${u.code}</span></td>
+              <td><strong>${u.name}</strong></td>
+              <td>${u.stock} / ${u.criticalThreshold}</td>
+              <td>${u.supplier}</td>
+              <td>${u.price.toLocaleString('tr-TR')} TL</td>
+              <td>${badge}</td>
+            </tr>
+          `;
+        }).join('');
+
+        // 2. Siparişler
+        const ordTbody = document.getElementById('orders-tbody');
+        if (!data.pendingOrders || data.pendingOrders.length === 0) {
+          ordTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>`;
+        } else {
+          ordTbody.innerHTML = data.pendingOrders.map(o => {
+            const isDirector = o.status.includes('DIREKTOR');
+            const badgeClass = isDirector ? 'status-approval' : 'status-pending';
+            return `
+              <tr>
+                <td><span class="tag">${o.orderNumber}</span></td>
+                <td>${o.productName} (${o.productCode})</td>
+                <td>${o.quantity} adet</td>
+                <td><strong>${o.totalAmount.toLocaleString('tr-TR')} TL</strong></td>
+                <td>${o.supplier}</td>
+                <td><span class="status-badge ${badgeClass}">${o.status}</span></td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // 3. Audit Log
+        const audTbody = document.getElementById('audit-tbody');
+        if (!data.recentAudits || data.recentAudits.length === 0) {
+          audTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Henüz denetim kaydı bulunmuyor.</td></tr>`;
+        } else {
+          audTbody.innerHTML = data.recentAudits.map(a => `
+            <tr>
+              <td>${new Date(a.timestamp).toLocaleTimeString('tr-TR')}</td>
+              <td><span class="tag">${a.modelUsed || 'Fallback'}</span></td>
+              <td><span style="color: #60a5fa; font-size:0.75rem;">${a.toolsExecuted}</span></td>
+              <td>${a.executionDurationMs} ms</td>
+              <td><span class="tag">${a.totalTokens || 0}</span></td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error("Durum yenilenemedi:", err);
+      }
+    }
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+
+      appendMessage(text, 'user');
+      userInput.value = '';
+      sendBtn.disabled = true;
+      typingIndicator.style.display = 'inline';
+
+      if (streamCheckbox.checked) {
+        // SSE Streaming Modu
+        const msgElem = createAgentMessageContainer();
+        const url = `/api/agent/chat/stream?sessionId=${encodeURIComponent(sessionId)}&message=${encodeURIComponent(text)}`;
+        const eventSource = new EventSource(url);
+
+        eventSource.addEventListener('token', (e) => {
+          msgElem.textContent += e.data;
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+
+        eventSource.addEventListener('done', () => {
+          eventSource.close();
+          sendBtn.disabled = false;
+          typingIndicator.style.display = 'none';
+          userInput.focus();
+          refreshStatus();
+        });
+
+        eventSource.onerror = (err) => {
+          eventSource.close();
+          sendBtn.disabled = false;
+          typingIndicator.style.display = 'none';
+          userInput.focus();
+          refreshStatus();
+        };
+      } else {
+        // Standart Senkron Mod
+        try {
+          const res = await fetch('/api/agent/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: sessionId, message: text })
+          });
+          const data = await res.json();
+          appendMessage(data.agentReply, 'agent', data.executionDurationMs, data.totalTokens);
+          refreshStatus();
+        } catch (err) {
+          appendMessage('⚠️ Hata: ' + err.message, 'agent');
+        } finally {
+          sendBtn.disabled = false;
+          typingIndicator.style.display = 'none';
+          userInput.focus();
+        }
+      }
+    }
+
+    function sendPrompt(text) {
+      userInput.value = text;
+      sendMessage();
+    }
+
+    function createAgentMessageContainer() {
+      const msg = document.createElement('div');
+      msg.className = 'message agent';
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return msg;
+    }
+
+    function appendMessage(text, sender, duration, tokens) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      msg.textContent = text;
+      
+      if (sender === 'agent' && duration !== undefined) {
+        const meta = document.createElement('div');
+        meta.className = 'message-meta';
+        meta.innerHTML = `⏱️ ${duration} ms | 🪙 ${tokens} tokens`;
+        msg.appendChild(meta);
+      }
+
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    refreshStatus();
+  </script>
+</body>
+</html>
