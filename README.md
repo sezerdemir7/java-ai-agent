@@ -1,4 +1,4 @@
-# 🤖 java-ai-agent — Enterprise Resilient AI Agent (Spring Boot 3 + LangChain4j)
+# 🤖 java-ai-agent — Enterprise Autonomous AI Agent in Java 21 & Spring Boot 3
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4%2B-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -6,149 +6,192 @@
 [![Hibernate/JPA](https://img.shields.io/badge/JPA-Hibernate%207-red.svg)](https://hibernate.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**java-ai-agent**, kurumsal organizasyonlar için geliştirilmiş; **RAG (Vektör Tabanlı Kurumsal Bilgi & Sözleşme Arama)**, **SSE Streaming (Reaktif Harf Harf Yanıt)**, **Otonom Araç Kullanımı (Tool Calling)**, **Oturum Bazlı Hafıza (Session Chat Memory)**, **H2 JPA/RDBMS Envanter Yönetimi** ve **Çoklu Model Hata Toleransı (Resilient Failover)** sunan production-ready bir Java AI Ajan mimarisidir.
+**java-ai-agent** is a production-grade, enterprise-ready Autonomous AI Agent backend built with **Java 21**, **Spring Boot 3**, and **LangChain4j**. It features **Triple-LLM Resilience with Automatic Failover** (Google Gemini, Groq / Llama-3, and OpenAI), **Agentic RAG with In-Memory Vector Search**, **Human-in-the-Loop (HITL) Approval Workflows**, **Proactive Autonomous Background Monitoring**, and a **Real-Time SSE Streaming Web Dashboard with Chart.js Analytics**.
 
 ---
 
-## 🏛️ Mimari Şema
+## 🏛️ Architecture Overview
 
 ```
-                                      +---------------------------------------------+
-                                      |          Web UI / REST API / SSE            |
-                                      +---------------------------------------------+
-                                                             |
-                                                             v
-                                      +---------------------------------------------+
-                                      |            com.aiagent.agent.Agent          |
-                                      |      (LangChain4j Declarative Service)      |
-                                      +---------------------------------------------+
-                                        /                    |                    \
-                                       /                     |                     \
-                                      v                      v                      v
-         +------------------------------------+  +----------------------+  +---------------------+
-         |     com.aiagent.resilience.        |  |  com.aiagent.rag.    |  | com.aiagent.tools.  |
-         |  FallbackChatModel & Streaming     |  |   KnowledgeService   |  |        Tools        |
-         +------------------------------------+  +----------------------+  +---------------------+
-             /                  \             \              |                         |
-            v                    v             \             v                         v
-+------------------------+ +-----------------+  \  +-------------------+   +---------------------+
-|     Google Gemini      | |  Groq (Llama-3) |   \ | InMemoryEmbedding |   | Spring Data JPA Repo|
-|    (Primary LLM)       | | (Failover LLM)  |    \| Store (Vektör DB) |   +---------------------+
-+------------------------+ +-----------------+     +-------------------+              |
-            \                      /                         |                        v
-             \                    /                          v             +---------------------+
-              v                  v               [Tedarikçi Sözleşmeleri,  | H2 In-Memory RDBMS  |
-         +------------------------------------+   Garanti ve Yönetmelik]   | - products          |
-         |    AuditService (Observability)    |--------------------------->| - purchase_orders   |
-         |   - Token Usage (Input/Output)     |                            | - agent_audit_logs  |
-         |   - Latency (ms) & Tool Tracing    |                            +---------------------+
-         +------------------------------------+
+                                  +-------------------------------------------------+
+                                  |     Web UI / REST API / SSE Streaming Client    |
+                                  +-------------------------------------------------+
+                                                          |
+                                                          v
+                                  +-------------------------------------------------+
+                                  |             com.aiagent.agent.Agent             |
+                                  |        (LangChain4j Declarative Service)        |
+                                  +-------------------------------------------------+
+                                     /                    |                    \
+                                    /                     |                     \
+                                   v                      v                      v
+      +------------------------------------+  +----------------------+  +---------------------+
+      |      com.aiagent.resilience.       |  |  com.aiagent.rag.    |  | com.aiagent.tools.  |
+      |   FallbackChatModel & Streaming    |  |   KnowledgeService   |  |        Tools        |
+      +------------------------------------+  +----------------------+  +---------------------+
+          /          |          \                         |                        |
+         v           v           v                        v                        v
+  +-----------+ +-----------+ +------------+    +-------------------+   +---------------------+
+  |  Google   | |   Groq    | |   OpenAI   |    | InMemoryEmbedding |   | Spring Data JPA     |
+  |  Gemini   | | (Llama-3) | | (GPT-4o)   |    | Store (Vector DB) |   | Repositories        |
+  | (Primary) | | (Backup)  | | (Fallback) |    +-------------------+   +---------------------+
+  +-----------+ +-----------+ +------------+              |                        |
+         \           |           /                        v                        v
+          \          |          /               [Supplier Contracts,    +---------------------+
+           v         v         v                Dead Pixel Policies,    | H2 In-Memory RDBMS  |
+      +------------------------------------+    Purchasing Limits]      | - products          |
+      |    AuditService (Observability)    |--------------------------->| - purchase_orders   |
+      |   - Token Usage (Input/Output)     |                            | - agent_audit_logs  |
+      |   - Latency (ms) & Tool Execution  |                            +---------------------+
+      +------------------------------------+
 ```
 
 ---
 
-## 🌟 Öne Çıkan Mühendislik Yetenekleri
+## 🌟 Key Engineering Capabilities
 
-### 1. Enterprise RAG & Vektör Veritabanı (Retrieval-Augmented Generation)
-Ajan sadece SQL tablosundaki sayılara bakmaz; şirketin hukuki ve operasyonel metinlerini semantik olarak anlar:
-* **Tedarikçi Çerçeve Sözleşmeleri:** TeknoTedarik, OfisDepo ve MegaBilisim firmalarıyla yapılan anlaşma maddeleri (teslimat süreleri, gecikme cezaları, piksel garantileri) `InMemoryEmbeddingStore` içerisine vektörleştirilir.
-* Kullanıcı bir sözleşme maddesi sorduğunda, `ContentRetriever` devreye girerek en alakalı maddeleri çıkarır ve modele bağlam olarak sunar.
+### 1. 🔄 Triple-LLM Resilience & Circuit-Breaker Fallback
+High availability is critical for production AI systems. The agent utilizes custom `FallbackChatModel` and `FallbackStreamingChatModel` implementations:
+* **Primary LLM:** Google Gemini (`gemini-3.5-flash`).
+* **Secondary LLM:** Groq (`openai/gpt-oss-120b` or Llama-3).
+* **Tertiary LLM:** OpenAI (`gpt-4o-mini`).
+* If the primary model encounters a rate limit (HTTP 429), quota exhaustion, or server timeout, the request seamlessly transitions to the next available provider with **zero user-facing downtime**.
 
-### 2. Server-Sent Events (SSE) ile Gerçek Zamanlı Streaming
-* Kullanıcı uzun cevapları beklemek zorunda kalmaz; `TokenStream` ve Spring `SseEmitter` aracılığıyla yanıtlar ekrana harf harf akar (ChatGPT arayüzü deneyimi).
+### 2. 🧠 Agentic RAG (Retrieval-Augmented Generation)
+The agent does not blindly query SQL tables; it understands corporate legal contracts and internal operational policies:
+* **Vector Embeddings:** Uses a lightweight in-memory vector store (`InMemoryEmbeddingStore`) with an embedded embedding model (`SimpleEmbeddingModel`), requiring zero external vector database infrastructure.
+* **Semantic Search:** When a user asks about supplier terms (e.g., delivery time frames, delay penalties, zero-dead-pixel guarantees), the agent invokes `searchContractsAndPolicies` tool to retrieve relevant clauses and formulate grounded answers.
 
-### 3. Spring Data JPA & H2 RDBMS Entegrasyonu
-Veriler bellek içi geçici listeler yerine gerçek JPA Entity'leri ile yönetilir:
-* **`Product`**: Ürün kodu, stok adedi, kritik eşik, tedarikçi ve birim fiyat.
-* **`PurchaseOrder`**: Ajan tarafından açılan satın alma sipariş taslakları, toplam tutar ve onay statüsü.
-* **`AgentAuditLog`**: Ajanın yaptığı her hareketin, harcanan token'ların ve gecikme süresinin saklandığı denetim tablosu.
+### 3. 🛡️ Human-in-the-Loop (HITL) Decision Guardrails
+Autonomous tools must operate safely within corporate financial limits:
+* **Threshold Guardrail:** Any purchase order with a quantity exceeding 20 units or a total value above 100,000 TL is automatically locked in `DIREKTOR_ONAYI_BEKLIYOR` (Director Approval Required) status.
+* **Dual Approval Channels:**
+  * **Via Natural Language:** Users can instruct the agent in chat (*"Approve order PO-31626"*), triggering the `approveOrder` tool.
+  * **Via Web Dashboard:** Managers can approve or reject orders with a single click, instantly updating the order status and crediting product stock in the database.
 
-### 4. Full Observability & Audit Trail (Denetim İzi ve Token Takibi)
-* LangChain4j'nin `ChatModelListener` arayüzü kullanılarak her AI çağrısının:
-  * Hangi model tarafından cevaplandığı,
-  * Kaç **giriş (input)**, **çıkış (output)** ve **toplam token** yaktığı,
-  * İstek süresinin kaç milisaniye (`executionDurationMs`) sürdüğü,
-  * Hangi `@Tool` metodlarının hangi parametrelerle çalıştırıldığı veritabanına otomatik kaydedilir.
+### 4. 🤖 Proactive Autonomous Sentinel (`@Scheduled` Agent)
+The agent is not just a passive question-answering bot:
+* Powered by Spring's `@Scheduled` background engine, `ProactiveAgentService` periodically scans inventory levels.
+* Detects items falling below safety thresholds and cross-references supplier contracts to calculate delivery lead times and SLA breach risks.
+* Emits structured **`ProactiveAlert`** reports with actionable recommendations, viewable in the dashboard or triggered on demand via REST.
 
-### 5. Resilient Failover Pattern (Çoklu Model Yedekleme)
-* `FallbackChatModel` ve `FallbackStreamingChatModel` sayesinde sistem **Triple-LLM Resilience (Gemini, Groq Llama-3, OpenAI GPT-4o)** destekler.
-* İstekler öncelikle **Google Gemini** modeline yönlendirilir.
-* Eğer Gemini'de kota dolumu, oran sınırı (429 Rate Limit) veya kesinti yaşanırsa, sistem kullanıcıya hata yansıtmadan **otomatik olarak Groq (Llama-3)** veya **OpenAI (GPT-4o)** modeline geçer.
+### 5. 🌊 Real-Time SSE Streaming with Lossless Formatting
+* Responses stream word-by-word into the web UI via **Server-Sent Events (SSE)** and LangChain4j's reactive `TokenStream`.
+* **JSON-Wrapped Token Stream:** Tokens are transmitted as structured JSON payloads (`{"token": "..."}`) to prevent standard browser `EventSource` whitespace trimming.
+* **Rich Markdown & Table Rendering:** Integrated `marked.js` with responsive CSS dynamically formats markdown tables, bullet points, and code blocks in real time.
 
-### 6. Enterprise Guardrails & Human-in-the-Loop (HITL)
-* **Onay Sınırları:** Sipariş adedi 20'nin üzerinde veya toplam tutar 100.000 TL'den fazla ise siparişe doğrudan onay verilmez; sistem otonom olarak `DIREKTOR_ONAYI_BEKLIYOR` statüsüne çeker.
-* **Human-in-the-Loop Karar Mekanizması:** Kritik operasyonlar insan onayına bırakılır. Yönetici hem sohbet üzerinden (`approveOrder` / `rejectOrder` araçlarıyla) hem de Web Dashboard'undaki interaktif butonlarla tek tıkla siparişleri onaylayabilir; onaylanan sipariş miktarı otomatik olarak ürünün H2 veritabanındaki stok adedine eklenir.
+### 6. 📊 Full Observability & Audit Trail
+* Implements LangChain4j's `ChatModelListener` to capture detailed metrics for every AI interaction:
+  * Model provider utilized (Gemini, Groq, OpenAI).
+  * Prompt tokens, completion tokens, and total token usage.
+  * Execution latency in milliseconds (`executionDurationMs`).
+  * Executed `@Tool` methods with input parameters.
+* All metrics are permanently persisted in the `agent_audit_logs` table for compliance and cost auditing.
 
-### 7. Proaktif Otonom Ajan (Scheduled Autonomous Sentinel)
-* Ajan yalnızca kullanıcı soru sorduğunda çalışan pasif bir bot değildir.
-* Spring `@Scheduled` altyapısı ile çalışan `ProactiveAgentService`, periyodik olarak veritabanını otonom tarar; kritik eşiğin altına düşen ürünleri ve tedarikçi sözleşmelerindeki teslimat/gecikme risklerini analiz ederek yöneticiye anlık risk uyarıları (`ProactiveAlert`) üretir.
-
-### 8. İnteraktif Veri Görselleştirme (Chart.js Analitik Paneli)
-* Dashboard üzerinde anlık veri analitiği:
-  * **Envanter Çubuk Grafiği (Bar Chart):** Mevcut stok seviyeleri ile kritik eşiklerin renk kodlu dinamik karşılaştırması.
-  * **AI Model & Token Dağılımı (Doughnut Chart):** İsteklerin hangi LLM modelleri tarafından karşılandığı ve harcanan token maliyetinin oransal analizi.
+### 7. 📈 Interactive Analytics & Data Visualization (Chart.js)
+* The dashboard includes visual charts powered by Chart.js:
+  * **Inventory vs. Critical Threshold (Bar Chart):** Visualizes on-hand stock against safety thresholds, highlighting critical items in red.
+  * **Model Distribution & Token Consumption (Doughnut Chart):** Illustrates the proportion of queries served by each model provider and cumulative token burn.
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Quick Start Guide
 
-### Gereksinimler
-* Java 21 LTS
-* (Opsiyonel) Google Gemini, Groq veya OpenAI API anahtarlarından en az biri
+### Prerequisites
+* **Java 21 LTS**
+* Maven 3.8+ (or use the included Maven Wrapper `mvnw`)
+* At least one valid API key from Google Gemini, Groq, or OpenAI
 
-### 1. Konfigürasyon
-`.env.example` dosyasını kopyalayıp `.env` oluşturun ve API anahtarınızı tanımlayın:
+### 1. Configuration (.env)
+Clone the repository and copy the environment template:
 
 ```bash
+git clone https://github.com/sezerdemir7/java-ai-agent.git
+cd java-ai-agent
 cp .env.example .env
 ```
 
-`.env` içeriği:
+Edit `.env` and insert your API keys:
+
 ```env
-# Google Gemini API Anahtarı (Öncelikli)
+# Google Gemini API Key (Primary)
 GEMINI_API_KEY=your_gemini_api_key_here
 
-# Groq API Anahtarı (Yedekleme / Fallback)
+# Groq API Key (Backup / Failover)
 GROQ_API_KEY=your_groq_api_key_here
 
-# OpenAI API Anahtarı (Opsiyonel)
+# OpenAI API Key (Optional)
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-> **Not:** API anahtarlarınız `.gitignore` ile korunmaktadır ve asla GitHub'a gönderilmez.
+> **Security Note:** `.env` is registered in `.gitignore` and will never be committed to Git.
 
-### 2. Çalıştırma
-Projeyi derleyip ayağa kaldırmak için terminalde şu komutu çalıştırın:
+### 2. Build and Run
+Start the application using the Maven wrapper:
 
 ```bash
 # Windows
 .\mvnw.cmd spring-boot:run
 
-# Linux / Mac
+# Linux / macOS
 ./mvnw spring-boot:run
 ```
 
-Uygulama başladıktan sonra tarayıcınızdan **`http://localhost:8080`** adresine gidin.
-H2 Veritabanı konsolu: **`http://localhost:8080/h2-console`** (JDBC URL: `jdbc:h2:mem:agentusdb`)
+Once started:
+* **Web UI Dashboard:** [http://localhost:8080](http://localhost:8080)
+* **H2 Web Console:** [http://localhost:8080/h2-console](http://localhost:8080/h2-console)  
+  * *JDBC URL:* `jdbc:h2:mem:agentusdb`
+  * *Username:* `sa`
+  * *Password:* *(empty)*
 
 ---
 
-## 📂 Paket Mimarisi
+## 📂 Project Architecture & Package Structure
 
 ```
 com.aiagent
-├── agent/            # Agent Interface (LangChain4j AiServices deklarasyonu)
-├── config/           # Spring & AI Bean yapılandırmaları ve DataInitializer
-├── controller/       # REST API & SSE Streaming Uç Noktaları
-├── domain/           # JPA Entity'leri (Product, PurchaseOrder, AgentAuditLog)
-├── rag/              # KnowledgeService (Vektör tabanlı RAG bilgi bankası)
-├── repository/       # Spring Data JPA Repository arayüzleri
-├── resilience/       # FallbackChatModel & FallbackStreamingChatModel
-├── service/          # AuditService (Observability & token listener)
-└── tools/            # Enterprise Business Tools (@Tool servisleri)
+├── agent/            # Declarative AI Agent interface (LangChain4j AiServices)
+├── config/           # Spring & AI Bean configurations, Fallback wires, DataInitializer
+├── controller/       # REST API endpoints, SSE Streaming, HITL actions
+├── domain/           # JPA Entities (Product, PurchaseOrder, AgentAuditLog)
+├── rag/              # In-Memory Vector Store & Semantic Contract Knowledge Base
+├── repository/       # Spring Data JPA Repository interfaces
+├── resilience/       # FallbackChatModel & FallbackStreamingChatModel implementations
+├── service/          # Observability AuditService & ProactiveAgentService
+└── tools/            # Enterprise Business Tools (@Tool services for ERP & HITL)
 ```
 
 ---
 
-## 📄 Lisans
-Bu proje [MIT](LICENSE) lisansı ile lisanslanmıştır.
+## 🔌 REST API Reference
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/agent/chat` | Synchronous agent chat interaction |
+| `GET` | `/api/agent/chat/stream?sessionId=...&message=...` | Reactive SSE streaming chat endpoint |
+| `GET` | `/api/agent/status` | Real-time dashboard status (inventory, orders, audits, proactive alerts) |
+| `POST` | `/api/agent/orders/{orderNumber}/approve` | Human-in-the-Loop order approval (updates stock) |
+| `POST` | `/api/agent/orders/{orderNumber}/reject` | Human-in-the-Loop order rejection |
+| `POST` | `/api/agent/proactive-scan` | Manually triggers the autonomous background sentinel |
+| `GET` | `/api/agent/audit-logs` | Fetches historical AI execution audit records |
+
+---
+
+## 🧪 Running Automated Tests
+
+To run the complete test suite:
+
+```bash
+# Windows
+.\mvnw.cmd test
+
+# Linux / macOS
+./mvnw test
+```
+
+The test suite validates Spring Context loading, entity repositories, and end-to-end tool execution against live model failover chains.
+
+---
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).
