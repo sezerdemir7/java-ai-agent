@@ -11,7 +11,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 @SpringBootApplication
+@EnableScheduling
 public class AgentApplication {
 
     private static final Logger log = LoggerFactory.getLogger(AgentApplication.class);

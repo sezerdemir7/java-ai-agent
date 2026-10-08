@@ -75,8 +75,18 @@ Veriler bellek içi geçici listeler yerine gerçek JPA Entity'leri ile yönetil
 * İstekler öncelikle **Google Gemini** modeline yönlendirilir.
 * Eğer Gemini'de kota dolumu, oran sınırı (429 Rate Limit) veya kesinti yaşanırsa, sistem kullanıcıya hata yansıtmadan **otomatik olarak Groq (Llama-3)** veya **OpenAI (GPT-4o)** modeline geçer.
 
-### 6. Enterprise Guardrails (İş Kuralları & Onay Mekanizması)
-* Sipariş adedi 20'nin üzerinde veya toplam tutar 100.000 TL'den fazla ise siparişe doğrudan onay verilmez; sistem otonom olarak `DIREKTOR_ONAYI_BEKLIYOR` statüsüne çeker.
+### 6. Enterprise Guardrails & Human-in-the-Loop (HITL)
+* **Onay Sınırları:** Sipariş adedi 20'nin üzerinde veya toplam tutar 100.000 TL'den fazla ise siparişe doğrudan onay verilmez; sistem otonom olarak `DIREKTOR_ONAYI_BEKLIYOR` statüsüne çeker.
+* **Human-in-the-Loop Karar Mekanizması:** Kritik operasyonlar insan onayına bırakılır. Yönetici hem sohbet üzerinden (`approveOrder` / `rejectOrder` araçlarıyla) hem de Web Dashboard'undaki interaktif butonlarla tek tıkla siparişleri onaylayabilir; onaylanan sipariş miktarı otomatik olarak ürünün H2 veritabanındaki stok adedine eklenir.
+
+### 7. Proaktif Otonom Ajan (Scheduled Autonomous Sentinel)
+* Ajan yalnızca kullanıcı soru sorduğunda çalışan pasif bir bot değildir.
+* Spring `@Scheduled` altyapısı ile çalışan `ProactiveAgentService`, periyodik olarak veritabanını otonom tarar; kritik eşiğin altına düşen ürünleri ve tedarikçi sözleşmelerindeki teslimat/gecikme risklerini analiz ederek yöneticiye anlık risk uyarıları (`ProactiveAlert`) üretir.
+
+### 8. İnteraktif Veri Görselleştirme (Chart.js Analitik Paneli)
+* Dashboard üzerinde anlık veri analitiği:
+  * **Envanter Çubuk Grafiği (Bar Chart):** Mevcut stok seviyeleri ile kritik eşiklerin renk kodlu dinamik karşılaştırması.
+  * **AI Model & Token Dağılımı (Doughnut Chart):** İsteklerin hangi LLM modelleri tarafından karşılandığı ve harcanan token maliyetinin oransal analizi.
 
 ---
 

@@ -24,11 +24,13 @@ public class AgentController {
     private final Agent agent;
     private final Tools tools;
     private final AuditService auditService;
+    private final com.aiagent.service.ProactiveAgentService proactiveAgentService;
 
-    public AgentController(Agent agent, Tools tools, AuditService auditService) {
+    public AgentController(Agent agent, Tools tools, AuditService auditService, com.aiagent.service.ProactiveAgentService proactiveAgentService) {
         this.agent = agent;
         this.tools = tools;
         this.auditService = auditService;
+        this.proactiveAgentService = proactiveAgentService;
     }
 
     public record ChatRequest(String sessionId, String message) {}
@@ -122,19 +124,61 @@ public class AgentController {
     }
 
     /**
-     * Envanter, bekleyen siparişler ve audit logları canlı izleme uç noktası
+     * Envanter, bekleyen siparişler, audit logları ve proaktif uyarıları canlı izleme uç noktası
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(Map.of(
                 "products", tools.getAllProductsForDashboard(),
                 "pendingOrders", tools.getPendingOrders(),
-                "recentAudits", auditService.getRecentLogs()
+                "recentAudits", auditService.getRecentLogs(),
+                "proactiveAlerts", proactiveAgentService.getRecentAlerts()
         ));
     }
 
     @GetMapping("/audit-logs")
     public ResponseEntity<List<AgentAuditLog>> getAuditLogs() {
         return ResponseEntity.ok(auditService.getRecentLogs());
+    }
+
+    /**
+     * Human-in-the-Loop (HITL) - Web UI üzerinden Sipariş Onaylama
+     */
+    @PostMapping("/orders/{orderNumber}/approve")
+    public ResponseEntity<Map<String, String>> approveOrder(
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestBody(required = false) Map<String, String> body) {
+        String note = (body != null && body.containsKey("note")) ? body.get("note") : "Web Arayüzünden Yönetici Onayı Verildi";
+        String result = tools.approveOrder(orderNumber, note);
+        return ResponseEntity.ok(Map.of("message", result));
+    }
+
+    /**
+     * Human-in-the-Loop (HITL) - Web UI üzerinden Sipariş Reddetme / İptal
+     */
+    @PostMapping("/orders/{orderNumber}/reject")
+    public ResponseEntity<Map<String, String>> rejectOrder(
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = (body != null && body.containsKey("reason")) ? body.get("reason") : "Yönetici tarafından iptal edildi";
+        String result = tools.rejectOrder(orderNumber, reason);
+        return ResponseEntity.ok(Map.of("message", result));
+    }
+
+    /**
+     * Otonom Arka Plan Nöbetçisini Anlık Manuel Tetikleme Uç Noktası
+     */
+    @PostMapping("/proactive-scan")
+    public ResponseEntity<Map<String, Object>> triggerProactiveScan() {
+        var alert = proactiveAgentService.runProactiveAudit();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "alert", alert != null ? alert : "Tüm stoklar güvenli, risk tespit edilmedi."
+        ));
+    }
+
+    @GetMapping("/proactive-alerts")
+    public ResponseEntity<List<com.aiagent.service.ProactiveAgentService.ProactiveAlert>> getProactiveAlerts() {
+        return ResponseEntity.ok(proactiveAgentService.getRecentAlerts());
     }
 }

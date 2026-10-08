@@ -153,4 +153,67 @@ public class Tools {
         auditService.recordToolExecution("searchContractsAndPolicies(" + query + ")");
         return knowledgeService.searchContracts(query);
     }
+
+    @Tool("Belirtilen sipariş numarasına sahip bekleyen bir satın alma siparişini onaylar ve sipariş adedini otomatik olarak ürünün güncel stok miktarına ekler.")
+    public String approveOrder(
+            @P("Onaylanacak sipariş numarası, örn: PO-31626") String orderNumber,
+            @P("Onay notu veya direktör açıklaması, örn: 'Bütçe onaylandı'") String approvalNote) {
+        log.info("🛠️ [TOOL EXECUTION]: approveOrder(orderNumber='{}', note='{}')", orderNumber, approvalNote);
+        auditService.recordToolExecution("approveOrder(" + orderNumber + ")");
+
+        if (orderNumber == null || orderNumber.isBlank()) {
+            return "Hata: Geçerli bir sipariş numarası girilmedi.";
+        }
+
+        Optional<PurchaseOrder> orderOpt = purchaseOrderRepository.findAll().stream()
+                .filter(o -> o.getOrderNumber().equalsIgnoreCase(orderNumber.trim()))
+                .findFirst();
+
+        if (orderOpt.isEmpty()) {
+            return "Hata: '" + orderNumber + "' numaralı sipariş bulunamadı.";
+        }
+
+        PurchaseOrder order = orderOpt.get();
+        if ("ONAYLANDI".equalsIgnoreCase(order.getStatus())) {
+            return "Bilgi: '" + orderNumber + "' numaralı sipariş zaten onaylanmış durumda.";
+        }
+
+        order.setStatus("ONAYLANDI");
+        purchaseOrderRepository.save(order);
+
+        // Stoğu otomatik güncelle
+        Optional<Product> productOpt = productRepository.findByCodeIgnoreCase(order.getProductCode());
+        if (productOpt.isPresent()) {
+            Product product = productOpt.get();
+            int oldStock = product.getStock();
+            product.setStock(oldStock + order.getQuantity());
+            productRepository.save(product);
+            return String.format("Başarılı: %s numaralı sipariş onaylandı (%s). %s kodlu ürünün stoğu %d -> %d adede güncellendi.",
+                    orderNumber, (approvalNote != null ? approvalNote : "Onaylandı"), product.getCode(), oldStock, product.getStock());
+        }
+
+        return String.format("Başarılı: %s numaralı sipariş onaylandı.", orderNumber);
+    }
+
+    @Tool("Belirtilen sipariş numarasına sahip satın alma siparişini reddeder ve iptal eder.")
+    public String rejectOrder(
+            @P("Reddedilecek sipariş numarası, örn: PO-31626") String orderNumber,
+            @P("Red gerekçesi") String reason) {
+        log.info("🛠️ [TOOL EXECUTION]: rejectOrder(orderNumber='{}', reason='{}')", orderNumber, reason);
+        auditService.recordToolExecution("rejectOrder(" + orderNumber + ")");
+
+        Optional<PurchaseOrder> orderOpt = purchaseOrderRepository.findAll().stream()
+                .filter(o -> o.getOrderNumber().equalsIgnoreCase(orderNumber.trim()))
+                .findFirst();
+
+        if (orderOpt.isEmpty()) {
+            return "Hata: '" + orderNumber + "' numaralı sipariş bulunamadı.";
+        }
+
+        PurchaseOrder order = orderOpt.get();
+        order.setStatus("REDDEDILDI: " + (reason != null ? reason : "Gerekçe belirtilmedi"));
+        purchaseOrderRepository.save(order);
+
+        return String.format("Başarılı: %s numaralı sipariş iptal edildi / reddedildi.", orderNumber);
+    }
 }

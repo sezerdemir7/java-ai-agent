@@ -5,6 +5,7 @@
   <title>java-ai-agent - Enterprise AI Agent (RAG, Tools & Streaming)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg: #0b1120;
@@ -319,6 +320,54 @@
       font-family: monospace;
       font-size: 0.75rem;
     }
+    .action-btn {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .btn-approve {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .btn-approve:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-reject {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.4);
+      margin-left: 4px;
+    }
+    .btn-reject:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+    .alert-card {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      font-size: 0.83rem;
+      line-height: 1.5;
+    }
+    .alert-card.medium {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .chart-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
     .doc-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -386,8 +435,10 @@
     <div class="panel">
       <div class="tabs-header">
         <button class="tab-btn active" onclick="switchTab('inventory-tab')">📊 Envanter</button>
-        <button class="tab-btn" onclick="switchTab('orders-tab')">🛒 Siparişler</button>
-        <button class="tab-btn" onclick="switchTab('rag-tab')">📜 RAG Sözleşmeler</button>
+        <button class="tab-btn" onclick="switchTab('orders-tab')">🛒 Siparişler (HITL)</button>
+        <button class="tab-btn" onclick="switchTab('proactive-tab')">🛡️ Otonom Nöbetçi</button>
+        <button class="tab-btn" onclick="switchTab('charts-tab')">📈 Grafikler</button>
+        <button class="tab-btn" onclick="switchTab('rag-tab')">📜 RAG Bilgi Bankası</button>
         <button class="tab-btn" onclick="switchTab('audit-tab')">⚡ Audit Log</button>
         <div style="flex:1;"></div>
         <button class="quick-btn" style="margin: 6px 12px;" onclick="refreshStatus()">Yenile ⟳</button>
@@ -413,7 +464,7 @@
           </table>
         </div>
 
-        <!-- TAB 2: Sipariş Taslakları -->
+        <!-- TAB 2: Sipariş Taslakları (HITL Onay) -->
         <div id="orders-tab" class="tab-pane">
           <table>
             <thead>
@@ -424,12 +475,38 @@
                 <th>Tutar</th>
                 <th>Tedarikçi</th>
                 <th>Durum</th>
+                <th>İşlem (HITL)</th>
               </tr>
             </thead>
             <tbody id="orders-tbody">
-              <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>
+              <tr><td colspan="7" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- TAB 3: Otonom Nöbetçi & Risk Raporları -->
+        <div id="proactive-tab" class="tab-pane">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:0.8rem; color: var(--text-muted);">
+              Arka planda otonom çalışan nöbetçi servis (Scheduled Agent), stok risklerini ve tedarikçi sözleşmelerini analiz eder.
+            </div>
+            <button class="quick-btn" style="background:var(--primary); color:#fff; border-color:var(--primary);" onclick="triggerProactiveScan()">⚡ Şimdi Tara</button>
+          </div>
+          <div id="proactive-alerts-container">
+            <div style="text-align:center; color: var(--text-muted); padding:20px;">Henüz aktif uyarı bulunmuyor.</div>
+          </div>
+        </div>
+
+        <!-- TAB 4: Dashboard Grafikleri (Chart.js) -->
+        <div id="charts-tab" class="tab-pane">
+          <div class="chart-container">
+            <div style="font-weight:600; font-size:0.85rem; margin-bottom:10px; color:#93c5fd;">📦 Stok vs Kritik Eşik Dağılımı</div>
+            <div style="position:relative; height:180px;"><canvas id="inventoryChart"></canvas></div>
+          </div>
+          <div class="chart-container">
+            <div style="font-weight:600; font-size:0.85rem; margin-bottom:10px; color:#93c5fd;">⚡ Model & Token Tüketim Analitiği</div>
+            <div style="position:relative; height:180px;"><canvas id="modelChart"></canvas></div>
+          </div>
         </div>
 
         <!-- TAB 3: RAG Dokümanları -->
@@ -517,14 +594,23 @@
           `;
         }).join('');
 
-        // 2. Siparişler
+        // 2. Siparişler (HITL Onay & İptal Desteği)
         const ordTbody = document.getElementById('orders-tbody');
         if (!data.pendingOrders || data.pendingOrders.length === 0) {
-          ordTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>`;
+          ordTbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted);">Henüz sipariş taslağı yok.</td></tr>`;
         } else {
           ordTbody.innerHTML = data.pendingOrders.map(o => {
             const isDirector = o.status.includes('DIREKTOR');
-            const badgeClass = isDirector ? 'status-approval' : 'status-pending';
+            const isApproved = o.status === 'ONAYLANDI';
+            const isRejected = o.status.startsWith('RED');
+            const badgeClass = isApproved ? 'status-ok' : (isRejected ? 'status-critical' : (isDirector ? 'status-approval' : 'status-pending'));
+            
+            const isPending = !isApproved && !isRejected;
+            const actionHtml = isPending ? `
+              <button class="action-btn btn-approve" title="Siparişi Onayla ve Stoğa Ekle" onclick="approveOrder('${o.orderNumber}')">✅ Onayla</button>
+              <button class="action-btn btn-reject" title="Siparişi Reddet" onclick="rejectOrder('${o.orderNumber}')">❌ İptal</button>
+            ` : `<span style="color:var(--text-muted); font-size:0.75rem;">Tamamlandı</span>`;
+
             return `
               <tr>
                 <td><span class="tag">${o.orderNumber}</span></td>
@@ -533,12 +619,36 @@
                 <td><strong>${o.totalAmount.toLocaleString('tr-TR')} TL</strong></td>
                 <td>${o.supplier}</td>
                 <td><span class="status-badge ${badgeClass}">${o.status}</span></td>
+                <td>${actionHtml}</td>
               </tr>
             `;
           }).join('');
         }
 
-        // 3. Audit Log
+        // 3. Otonom Nöbetçi Uyarıları
+        const alertsContainer = document.getElementById('proactive-alerts-container');
+        if (alertsContainer) {
+          if (!data.proactiveAlerts || data.proactiveAlerts.length === 0) {
+            alertsContainer.innerHTML = `<div style="text-align:center; color: var(--text-muted); padding:20px;">Henüz aktif risk uyarısı bulunmuyor.</div>`;
+          } else {
+            alertsContainer.innerHTML = data.proactiveAlerts.map(alt => `
+              <div class="alert-card ${alt.severity === 'MEDIUM' ? 'medium' : ''}">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <strong style="color:${alt.severity === 'HIGH' ? '#f87171' : '#fbbf24'}; font-size:0.88rem;">🚨 ${alt.title}</strong>
+                  <span class="tag">${new Date(alt.timestamp).toLocaleTimeString('tr-TR')}</span>
+                </div>
+                <div style="color:var(--text); margin-bottom:8px; white-space:pre-wrap;">${alt.summary}</div>
+                ${alt.contractInsight ? `
+                  <div style="background:rgba(0,0,0,0.2); padding:8px; border-radius:6px; font-size:0.78rem; color:#93c5fd; border-left:3px solid var(--primary);">
+                    <strong>📜 Tedarikçi Sözleşme Maddesi (RAG):</strong><br>${alt.contractInsight}
+                  </div>
+                ` : ''}
+              </div>
+            `).join('');
+          }
+        }
+
+        // 4. Audit Log
         const audTbody = document.getElementById('audit-tbody');
         if (!data.recentAudits || data.recentAudits.length === 0) {
           audTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Henüz denetim kaydı bulunmuyor.</td></tr>`;
@@ -553,8 +663,137 @@
             </tr>
           `).join('');
         }
+
+        // 5. Grafikleri Güncelle
+        updateCharts(data.products, data.recentAudits);
       } catch (err) {
         console.error("Durum yenilenemedi:", err);
+      }
+    }
+
+    // HITL Sipariş Onaylama
+    async function approveOrder(orderNumber) {
+      if (!confirm(orderNumber + ' numaralı siparişi onaylamak ve stoğu güncellemek istiyor musunuz?')) return;
+      try {
+        const res = await fetch('/api/agent/orders/' + encodeURIComponent(orderNumber) + '/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: 'Web Dashboard üzerinden Yönetici Onayı verildi' })
+        });
+        const data = await res.json();
+        alert(data.message || 'Sipariş başarıyla onaylandı!');
+        refreshStatus();
+      } catch (e) {
+        alert('Hata: ' + e.message);
+      }
+    }
+
+    // HITL Sipariş İptal / Reddetme
+    async function rejectOrder(orderNumber) {
+      const reason = prompt(orderNumber + ' numaralı siparişi iptal gerekçeniz:');
+      if (reason === null) return;
+      try {
+        const res = await fetch('/api/agent/orders/' + encodeURIComponent(orderNumber) + '/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: reason || 'Yönetici tarafından iptal edildi' })
+        });
+        const data = await res.json();
+        alert(data.message || 'Sipariş iptal edildi.');
+        refreshStatus();
+      } catch (e) {
+        alert('Hata: ' + e.message);
+      }
+    }
+
+    // Otonom Nöbetçi Taramasını Manuel Tetikleme
+    async function triggerProactiveScan() {
+      try {
+        const res = await fetch('/api/agent/proactive-scan', { method: 'POST' });
+        const data = await res.json();
+        alert('Otonom Nöbetçi ERP taramasını tamamladı! Riskler analiz edildi.');
+        refreshStatus();
+      } catch (e) {
+        alert('Hata: ' + e.message);
+      }
+    }
+
+    // Chart.js Analitik Grafikleri
+    let invChartInstance = null;
+    let modelChartInstance = null;
+
+    function updateCharts(products, audits) {
+      if (!products || typeof Chart === 'undefined') return;
+
+      // 1. Envanter Grafiği
+      const ctxInv = document.getElementById('inventoryChart');
+      if (ctxInv) {
+        const labels = products.map(p => p.code);
+        const stockData = products.map(p => p.stock);
+        const thresholdData = products.map(p => p.criticalThreshold);
+        const barColors = products.map(p => p.stock <= p.criticalThreshold ? '#ef4444' : '#10b981');
+
+        if (invChartInstance) {
+          invChartInstance.data.labels = labels;
+          invChartInstance.data.datasets[0].data = stockData;
+          invChartInstance.data.datasets[0].backgroundColor = barColors;
+          invChartInstance.data.datasets[1].data = thresholdData;
+          invChartInstance.update();
+        } else {
+          invChartInstance = new Chart(ctxInv, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [
+                { label: 'Mevcut Stok', data: stockData, backgroundColor: barColors, borderRadius: 4 },
+                { label: 'Kritik Eşik', data: thresholdData, backgroundColor: '#f59e0b', borderRadius: 4 }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+              scales: {
+                x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#23314f' } }
+              }
+            }
+          });
+        }
+      }
+
+      // 2. Model & Token Grafiği
+      const ctxModel = document.getElementById('modelChart');
+      if (ctxModel && audits) {
+        const modelCounts = {};
+        audits.forEach(a => {
+          const m = a.modelUsed || 'Fallback/Diğer';
+          modelCounts[m] = (modelCounts[m] || 0) + (a.totalTokens || 1);
+        });
+        const mLabels = Object.keys(modelCounts).length > 0 ? Object.keys(modelCounts) : ['Henüz İstek Yok'];
+        const mData = Object.keys(modelCounts).length > 0 ? Object.values(modelCounts) : [1];
+
+        if (modelChartInstance) {
+          modelChartInstance.data.labels = mLabels;
+          modelChartInstance.data.datasets[0].data = mData;
+          modelChartInstance.update();
+        } else {
+          modelChartInstance = new Chart(ctxModel, {
+            type: 'doughnut',
+            data: {
+              labels: mLabels,
+              datasets: [{
+                data: mData,
+                backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899']
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10 } } } }
+            }
+          });
+        }
       }
     }
 
