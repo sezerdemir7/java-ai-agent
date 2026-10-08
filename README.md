@@ -12,38 +12,51 @@
 
 ## 🏛️ Architecture Overview
 
-```
-                                  +-------------------------------------------------+
-                                  |     Web UI / REST API / SSE Streaming Client    |
-                                  +-------------------------------------------------+
-                                                          |
-                                                          v
-                                  +-------------------------------------------------+
-                                  |             com.aiagent.agent.Agent             |
-                                  |        (LangChain4j Declarative Service)        |
-                                  +-------------------------------------------------+
-                                     /                    |                    \
-                                    /                     |                     \
-                                   v                      v                      v
-      +------------------------------------+  +----------------------+  +---------------------+
-      |      com.aiagent.resilience.       |  |  com.aiagent.rag.    |  | com.aiagent.tools.  |
-      |   FallbackChatModel & Streaming    |  |   KnowledgeService   |  |        Tools        |
-      +------------------------------------+  +----------------------+  +---------------------+
-          /          |          \                         |                        |
-         v           v           v                        v                        v
-  +-----------+ +-----------+ +------------+    +-------------------+   +---------------------+
-  |  Google   | |   Groq    | |   OpenAI   |    | InMemoryEmbedding |   | Spring Data JPA     |
-  |  Gemini   | | (Llama-3) | | (GPT-4o)   |    | Store (Vector DB) |   | Repositories        |
-  | (Primary) | | (Backup)  | | (Fallback) |    +-------------------+   +---------------------+
-  +-----------+ +-----------+ +------------+              |                        |
-         \           |           /                        v                        v
-          \          |          /               [Supplier Contracts,    +---------------------+
-           v         v         v                Dead Pixel Policies,    | H2 In-Memory RDBMS  |
-      +------------------------------------+    Purchasing Limits]      | - products          |
-      |    AuditService (Observability)    |--------------------------->| - purchase_orders   |
-      |   - Token Usage (Input/Output)     |                            | - agent_audit_logs  |
-      |   - Latency (ms) & Tool Execution  |                            +---------------------+
-      +------------------------------------+
+```mermaid
+flowchart TD
+    User(["👤 Enterprise User / Web Dashboard / REST Client"])
+    
+    API["🌐 AgentController & SSE Streaming Bridge<br/>(Spring Boot 3.4 REST & Server-Sent Events)"]
+    User --> API
+
+    subgraph CoreLoop [" Core Autonomous Loop "]
+        Agent["🤖 Agent Orchestrator<br/>(LangChain4j Declarative AiServices)"]
+        API --> Agent
+
+        LLM["🔄 Triple-LLM Resilience Hub<br/>(FallbackChatModel & Circuit Breaker)"]
+        RAG["🧠 Agentic Knowledge RAG<br/>(InMemoryVectorStore & Tokenizer)"]
+        Tools["🛠️ Enterprise ERP Tools & HITL<br/>(Products, Orders & Human Approvals)"]
+        Sentinel["⏰ Proactive Sentinel Auditor<br/>(@Scheduled Autonomous Job)"]
+
+        Agent --> LLM
+        Agent --> RAG
+        Agent --> Tools
+        Sentinel -.->|"Autonomous Wakeup"| Agent
+    end
+
+    subgraph Providers [" Multi-LLM Providers "]
+        Gemini["✨ Google Gemini<br/>(Primary Provider)"]
+        Groq["⚡ Groq / Llama-3<br/>(Secondary Fallback)"]
+        OpenAI["🔮 OpenAI GPT-4o<br/>(Tertiary Fallback)"]
+        
+        LLM --> Gemini
+        LLM -.->|"On 429 / Outage"| Groq
+        LLM -.->|"On Failover"| OpenAI
+    end
+
+    subgraph Storage [" Data & Knowledge Stores "]
+        VectorDB[("📚 In-Memory Vector Store<br/>Supplier Contracts, Policies & SLAs")]
+        H2DB[("💾 Relational Database (H2 / JPA)<br/>Products • Orders • Audit Logs")]
+        
+        RAG --> VectorDB
+        Tools --> H2DB
+    end
+
+    subgraph Observability [" Observability & Telemetry "]
+        Audit["📊 AuditService & Telemetry<br/>Token Usage • Latencies • Chart.js Feed"]
+        H2DB -.-> Audit
+        Audit -.->|"Live Metrics"| API
+    end
 ```
 
 ---
