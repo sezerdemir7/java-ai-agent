@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>java-ai-agent - Enterprise AI Agent (RAG, Tools & Streaming)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root {
       --bg: #0b1120;
@@ -99,24 +100,71 @@
       gap: 14px;
     }
     .message {
-      max-width: 85%;
+      max-width: 88%;
       padding: 12px 16px;
       border-radius: 12px;
       font-size: 0.92rem;
-      line-height: 1.5;
-      white-space: pre-wrap;
+      line-height: 1.6;
     }
     .message.user {
       align-self: flex-end;
       background: var(--primary);
       color: #fff;
       border-bottom-right-radius: 2px;
+      white-space: pre-wrap;
     }
     .message.agent {
       align-self: flex-start;
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-bottom-left-radius: 2px;
+    }
+    .message.agent table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 0.84rem;
+      background: #0d1527;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .message.agent th, .message.agent td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .message.agent th {
+      background: #1e293b;
+      color: #93c5fd;
+      font-weight: 600;
+    }
+    .message.agent tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .message.agent ul, .message.agent ol {
+      margin-left: 20px;
+      margin-top: 6px;
+      margin-bottom: 6px;
+    }
+    .message.agent li {
+      margin-bottom: 4px;
+    }
+    .message.agent h1, .message.agent h2, .message.agent h3, .message.agent h4 {
+      margin-top: 12px;
+      margin-bottom: 6px;
+      color: #60a5fa;
+      font-size: 0.96rem;
+    }
+    .message.agent p {
+      margin-bottom: 8px;
+    }
+    .message.agent p:last-child {
+      margin-bottom: 0;
+    }
+    .message.agent hr {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 12px 0;
     }
     .message-meta {
       font-size: 0.7rem;
@@ -510,6 +558,17 @@
       }
     }
 
+    function formatMarkdown(text) {
+      if (!text) return '';
+      if (typeof marked !== 'undefined' && marked.parse) {
+        return marked.parse(text);
+      }
+      return text
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
     async function sendMessage() {
       const text = userInput.value.trim();
       if (!text) return;
@@ -522,11 +581,24 @@
       if (streamCheckbox.checked) {
         // SSE Streaming Modu
         const msgElem = createAgentMessageContainer();
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        msgElem.appendChild(contentDiv);
+
+        let rawBuffer = "";
         const url = `/api/agent/chat/stream?sessionId=${encodeURIComponent(sessionId)}&message=${encodeURIComponent(text)}`;
         const eventSource = new EventSource(url);
 
         eventSource.addEventListener('token', (e) => {
-          msgElem.textContent += e.data;
+          let token = "";
+          try {
+            const data = JSON.parse(e.data);
+            token = (data.token !== undefined) ? data.token : e.data;
+          } catch (_) {
+            token = e.data;
+          }
+          rawBuffer += token;
+          contentDiv.innerHTML = formatMarkdown(rawBuffer);
           chatMessages.scrollTop = chatMessages.scrollHeight;
         });
 
@@ -582,7 +654,15 @@
     function appendMessage(text, sender, duration, tokens) {
       const msg = document.createElement('div');
       msg.className = `message ${sender}`;
-      msg.textContent = text;
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      if (sender === 'agent') {
+        contentDiv.innerHTML = formatMarkdown(text);
+      } else {
+        contentDiv.textContent = text;
+      }
+      msg.appendChild(contentDiv);
       
       if (sender === 'agent' && duration !== undefined) {
         const meta = document.createElement('div');

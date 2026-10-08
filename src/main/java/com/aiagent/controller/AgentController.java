@@ -75,7 +75,7 @@ public class AgentController {
                 .onNext(token -> {
                     try {
                         fullReply.append(token);
-                        emitter.send(SseEmitter.event().name("token").data(token));
+                        emitter.send(SseEmitter.event().name("token").data(Map.of("token", token)));
                     } catch (Exception e) {
                         log.warn("SSE token gönderme hatası: {}", e.getMessage());
                         emitter.completeWithError(e);
